@@ -1,0 +1,57 @@
+name: Project-SEKA Auto Build
+
+on:
+  push:
+    branches: [ main ]  # Kod her main'e gittiğinde çalışır
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Kodları Çek
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔢 Versiyonu Otomatik Değiştir
+        run: |
+          # Mevcut versiyonu oku, son rakamı artır
+          if [ ! -f version.txt ]; then echo "1.8.0" > version.txt; fi
+          VERSION=$(cat version.txt)
+          NEW_V=$(echo $VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=.)
+          echo $NEW_V > version.txt
+          echo "NEW_VERSION=$NEW_V" >> $GITHUB_ENV
+          echo "Yeni Sürüm: $NEW_V"
+
+      - name: 🛠️ Android SDK Kurulumu
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🏗️ SekaLauncher Derle (Midnight Glow Logic)
+        run: |
+          # Burada Gradle komutu çalışır (Sıfırdan yaptığımız Launcher için)
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: 🎵 Vega.ogg Kontrolü
+        run: |
+          if [ -f "Vega.ogg" ]; then
+            echo "Vega.ogg bulundu, pakete ekleniyor."
+          else
+            echo "Vega.ogg bulunamadı, bu adım atlanıyor."
+          fi
+
+      - name: 📤 Build Dosyalarını Kaydet (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PJSK-OS-v${{ env.NEW_VERSION }}
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            version.txt
+            Vega.ogg
+
+      - name: 📡 ADB Status Note
+        run: echo "ADB Status: Always Open Mode Active in Build"
