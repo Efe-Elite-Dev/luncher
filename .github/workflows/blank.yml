@@ -3,7 +3,11 @@ name: Project-SEKA Auto Build & Versioning
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Manuel başlatma butonu ekler
+  workflow_dispatch:
+
+# AGA BURASI ÇOK ÖNEMLİ: Yazma iznini koda da ekledik
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -15,16 +19,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🔢 Auto Versioning (Efe Style)
+      - name: 🔢 Auto Versioning
         id: versioning
         run: |
-          # Versiyon dosyası yoksa oluştur, varsa son rakamı artır
           if [ ! -f version.txt ]; then echo "1.8.0" > version.txt; fi
           CURRENT_V=$(cat version.txt)
           NEW_V=$(echo $CURRENT_V | awk -F. '{$NF = $NF + 1;} 1' OFS=.)
           echo $NEW_V > version.txt
           echo "NEW_VERSION=$NEW_V" >> $GITHUB_ENV
-          echo "Build Sürümü: $NEW_V"
 
       - name: 🛠️ Setup Java & Android SDK
         uses: actions/setup-java@v4
@@ -32,32 +34,20 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: 🏗️ Build SekaLauncher (Midnight Glow & Start Button)
+      - name: 🏗️ Build SekaLauncher
         run: |
-          # Bu kısım Launcher kodunu compile eder
           if [ -f gradlew ]; then
             chmod +x gradlew
             ./gradlew assembleDebug
           else
-            echo "Gradlew bulunamadı, şimdilik placeholder APK oluşturuluyor."
+            echo "Gradlew yok, boş APK üretiliyor."
             mkdir -p app/build/outputs/apk/debug/
             touch app/build/outputs/apk/debug/SekaLauncher-v${{ env.NEW_VERSION }}.apk
           fi
 
       - name: 🎵 File Logic (Vega.ogg)
         run: |
-          # İsimlendirme mantığı kaldırıldı, direkt Vega.ogg kullanılıyor
-          if [ -f "Vega.ogg" ]; then
-            echo "Vega.ogg pakete dahil ediliyor."
-          else
-            echo "Uyarı: Vega.ogg bulunamadı, boş dosya oluşturuluyor."
-            touch Vega.ogg
-          fi
-
-      - name: 📡 ADB Status
-        run: |
-          echo "ADB_STATUS=ALWAYS_OPEN"
-          echo "Project Sekai Optimized: True"
+          if [ ! -f "Vega.ogg" ]; then touch Vega.ogg; fi
 
       - name: 📤 Upload PJSK-OS Artifacts
         uses: actions/upload-artifact@v4
@@ -67,12 +57,12 @@ jobs:
             version.txt
             Vega.ogg
             app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
 
       - name: 📝 Auto-Commit Version Update
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add version.txt
-          git commit -m "Build: v${{ env.NEW_VERSION }} [v2.0 Preparation]"
+          # Sadece değişiklik varsa commit yap (hata almamak için)
+          git diff-index --quiet HEAD || git commit -m "Build: v${{ env.NEW_VERSION }} [v2.0 Preparation]"
           git push
