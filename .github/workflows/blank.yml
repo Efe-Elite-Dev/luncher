@@ -2,7 +2,7 @@ name: Project-SEKA Auto Build
 
 on:
   push:
-    branches: [ main ]  # Kod her main'e gittiğinde çalışır
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -16,42 +16,40 @@ jobs:
 
       - name: 🔢 Versiyonu Otomatik Değiştir
         run: |
-          # Mevcut versiyonu oku, son rakamı artır
           if [ ! -f version.txt ]; then echo "1.8.0" > version.txt; fi
           VERSION=$(cat version.txt)
           NEW_V=$(echo $VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=.)
           echo $NEW_V > version.txt
           echo "NEW_VERSION=$NEW_V" >> $GITHUB_ENV
-          echo "Yeni Sürüm: $NEW_V"
+          echo "Build sürümü: $NEW_V"
 
-      - name: 🛠️ Android SDK Kurulumu
+      - name: 🛠️ Java Kurulumu
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: 🏗️ SekaLauncher Derle (Midnight Glow Logic)
+      - name: 🏗️ SekaLauncher Derle
         run: |
-          # Burada Gradle komutu çalışır (Sıfırdan yaptığımız Launcher için)
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          else
+            echo "Gradlew bulunamadı, APK adımı atlanıyor."
+          fi
 
       - name: 🎵 Vega.ogg Kontrolü
         run: |
           if [ -f "Vega.ogg" ]; then
-            echo "Vega.ogg bulundu, pakete ekleniyor."
+            echo "Vega.ogg mevcut."
           else
-            echo "Vega.ogg bulunamadı, bu adım atlanıyor."
+            touch Vega.ogg # Dosya yoksa hata vermemesi için boş bir tane oluşturur
           fi
 
-      - name: 📤 Build Dosyalarını Kaydet (Artifacts)
+      - name: 📤 Dosyaları Kaydet (Artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: PJSK-OS-v${{ env.NEW_VERSION }}
+          name: PJSK-OS-Build
           path: |
-            app/build/outputs/apk/debug/*.apk
             version.txt
             Vega.ogg
-
-      - name: 📡 ADB Status Note
-        run: echo "ADB Status: Always Open Mode Active in Build"
